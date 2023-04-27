@@ -47,6 +47,7 @@ import (
 	"github.com/influxdata/kapacitor/services/auth/meta"
 	"github.com/influxdata/kapacitor/services/bigpanda/bigpandatest"
 	"github.com/influxdata/kapacitor/services/discord/discordtest"
+	"github.com/influxdata/kapacitor/services/alertmanager/alertmanagertest"
 	"github.com/influxdata/kapacitor/services/hipchat/hipchattest"
 	"github.com/influxdata/kapacitor/services/httppost"
 	"github.com/influxdata/kapacitor/services/httppost/httpposttest"
@@ -6817,6 +6818,59 @@ func TestServer_UpdateConfig(t *testing.T) {
 			},
 		},
 		{
+			section: "alertmanager",
+			setDefaults: func(c *server.Config) {
+				c.AlertManager.URL = "http://alertmanager.example.com"
+			},
+			expDefaultSection: client.ConfigSection{
+				Link: client.Link{Relation: client.Self, Href: "/kapacitor/v1/config/alertmanager"},
+				Elements: []client.ConfigElement{{
+					Link: client.Link{Relation: client.Self, Href: "/kapacitor/v1/config/alertmanager/"},
+					Options: map[string]interface{}{
+						"enabled": false,
+						"room":    "",
+						"url":     "http://alertmanager.example.com",
+					},
+				}},
+			},
+			expDefaultElement: client.ConfigElement{
+				Link: client.Link{Relation: client.Self, Href: "/kapacitor/v1/config/alertmanager/"},
+				Options: map[string]interface{}{
+					"enabled": false,
+					"room":    "",
+					"url":     "http://alertmanager.example.com",
+				},
+			},
+			updates: []updateAction{
+				{
+					updateAction: client.ConfigUpdateAction{
+						Set: map[string]interface{}{
+							"room": "kapacitor",
+						},
+					},
+					expSection: client.ConfigSection{
+						Link: client.Link{Relation: client.Self, Href: "/kapacitor/v1/config/alertmanager"},
+						Elements: []client.ConfigElement{{
+							Link: client.Link{Relation: client.Self, Href: "/kapacitor/v1/config/alertmanager/"},
+							Options: map[string]interface{}{
+								"enabled": false,
+								"room":    "kapacitor",
+								"url":     "http://alertmanager.example.com",
+							},
+						}},
+					},
+					expElement: client.ConfigElement{
+						Link: client.Link{Relation: client.Self, Href: "/kapacitor/v1/config/alertmanager/"},
+						Options: map[string]interface{}{
+							"enabled": false,
+							"room":    "kapacitor",
+							"url":     "http://alertmanager.example.com",
+						},
+					},
+				},
+			},
+		},
+		{
 			section: "httppost",
 			element: "test",
 			setDefaults: func(c *server.Config) {
@@ -9103,6 +9157,28 @@ func TestServer_ListServiceTests(t *testing.T) {
 				},
 			},
 			{
+				Link: client.Link{Relation: client.Self, Href: "/kapacitor/v1/service-tests/alertmanager"},
+				Name: "alertmanager",
+				Options: client.ServiceTestOptions{
+					"alertManagerTagName": []interface{}{
+						"tagA",
+						"tagB",
+					},
+					"alertManagerTagValue": []interface{}{
+						"tag_valueA",
+						"tag_valueB",
+					},
+					"alertManagerAnnotationName": []interface{}{
+						"annA",
+						"annB",
+					},
+					"alertManagerAnnotationValue": []interface{}{
+						"ann_valueA",
+						"ann_valueB",
+					},
+				},
+			},
+			{
 				Link: client.Link{Relation: "self", Href: "/kapacitor/v1/service-tests/azure"},
 				Name: "azure",
 				Options: client.ServiceTestOptions{
@@ -9643,6 +9719,14 @@ func TestServer_DoServiceTest(t *testing.T) {
 	}{
 		{
 			service: "alerta",
+			options: client.ServiceTestOptions{},
+			exp: client.ServiceTestResult{
+				Success: false,
+				Message: "service is not enabled",
+			},
+		},
+		{
+			service: "alertmanager",
 			options: client.ServiceTestOptions{},
 			exp: client.ServiceTestResult{
 				Success: false,
@@ -10559,6 +10643,30 @@ func TestServer_AlertHandlers(t *testing.T) {
 				}}
 				if !reflect.DeepEqual(exp, got) {
 					return fmt.Errorf("unexpected discord request:\nexp\n%+v\ngot\n%+v\n", exp, got)
+		{
+			handler: client.TopicHandler{
+				Kind: "alertmanager",
+				Options: map[string]interface{}{
+				},
+			},
+			setup: func(c *server.Config, ha *client.TopicHandler) (context.Context, error) {
+				ts := alertmanagertest.NewServer()
+				ctxt := context.WithValue(nil, "server", ts)
+				c.AlertManager.Enabled = true
+				c.AlertManager.URL = ts.URL
+				return ctxt, nil
+			},
+			result: func(ctxt context.Context) error {
+				ts := ctxt.Value("server").(*alertmanagertest.Server)
+				ts.Close()
+				got := ts.Requests()
+				exp := []alertmanagertest.Request{{
+					URL: "/",
+					PostData: alertmanagertest.PostData{
+					},
+				}}
+				if !reflect.DeepEqual(exp, got) {
+					return fmt.Errorf("unexpected alertmanager request:\nexp\n%+v\ngot\n%+v\n", exp, got)
 				}
 				return nil
 			},

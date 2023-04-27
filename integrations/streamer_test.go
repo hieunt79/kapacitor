@@ -41,6 +41,8 @@ import (
 	"github.com/influxdata/kapacitor/services/alerta/alertatest"
 	"github.com/influxdata/kapacitor/services/bigpanda"
 	"github.com/influxdata/kapacitor/services/bigpanda/bigpandatest"
+	"github.com/influxdata/kapacitor/services/alertmanager"
+	"github.com/influxdata/kapacitor/services/alertmanager/alertmanagertest"
 	"github.com/influxdata/kapacitor/services/diagnostic"
 	"github.com/influxdata/kapacitor/services/discord"
 	"github.com/influxdata/kapacitor/services/discord/discordtest"
@@ -9271,8 +9273,78 @@ stream
 	}
 }
 
-func TestStream_AlertDiscord(t *testing.T) {
-	ts := discordtest.NewServer()
+func TestStream_AlertAlertManager(t *testing.T) {
+	ts := alertmanagertest.NewServer()
+	defer ts.Close()
+
+	var script = `
+stream
+	|from()
+		.measurement('cpu')
+		.where(lambda: "host" == 'serverA')
+		.groupBy('host')
+	|window()
+		.period(10s)
+		.every(10s)
+	|count('value')
+	|alert()
+		.id('kapacitor/{{ .Name }}/{{ index .Tags "host" }}')
+		.info(lambda: "count" > 6.0)
+		.warn(lambda: "count" > 7.0)
+		.crit(lambda: "count" > 8.0)
+		.alertManager()
+            .alertManagerTagNames('resource', 'alertname')
+            .alertManagerTagValues('{{ index .Tags "host" }}', '{{ .ID }}')
+            .alertManagerAnnotationNames('boo1', 'boo2')
+            .alertManagerAnnotationValues('bar1', 'bar2')
+        .alertManager()
+            .alertManagerTagNames('foo1', 'foo2')
+            .alertManagerTagValues('far1', 'far2')
+        
+`
+	tmInit := func(tm *kapacitor.TaskMaster) {
+		c := alertmanager.NewConfig()
+		c.Enabled = true
+		c.URL = ts.URL
+		sl := alertmanager.NewService(c, diagService.NewAlertManagerHandler())
+		tm.AlertManagerService = sl
+	}
+	testStreamerNoOutput(t, "TestStream_Alert", script, 13*time.Second, tmInit)
+
+	exp := []interface{}{
+		alertmanagertest.Request{
+			URL: "/",
+			PostData: alertmanagertest.PostData{struct {
+				Status      string
+				Labels      map[string]string
+				Annotations map[string]string
+			}{Status: "firing", Labels: map[string]string{"resource":"serverA","alertname":"kapacitor/cpu/serverA"},
+				Annotations: map[string]string{"boo1":"bar1","boo2":"bar2"}}},
+		},
+		alertmanagertest.Request{
+			URL: "/",
+			PostData: alertmanagertest.PostData{struct {
+				Status      string
+				Labels      map[string]string
+				Annotations map[string]string
+			}{Status: "firing", Labels: map[string]string{"foo1":"far1","foo2":"far2"},
+				Annotations: map[string]string{}}},
+		},
+	}
+
+	ts.Close()
+	var got []interface{}
+	for _, g := range ts.Requests() {
+		got = append(got, g)
+	}
+
+	if err := compareListIgnoreOrder(got, exp, nil); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestStream_AlertPushover(t *testing.T) {
+	ts := pushovertest.NewServer()
 	defer ts.Close()
 
 	var script = `

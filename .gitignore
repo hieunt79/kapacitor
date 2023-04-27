@@ -26,3 +26,4 @@ kapacitor*.zip
 
 # Ignore go vendor directory
 /vendor
+.idea

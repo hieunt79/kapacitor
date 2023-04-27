@@ -256,6 +256,7 @@ func TestPipeline_MarshalJSON(t *testing.T) {
             "telegram": null,
             "hipChat": null,
             "alerta": null,
+            "alertManager": null,
             "opsGenie": null,
             "opsGenie2": null,
             "talk": null,

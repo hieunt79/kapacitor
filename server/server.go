@@ -4,6 +4,7 @@ package server
 import (
 	"crypto/tls"
 	"fmt"
+	"github.com/influxdata/kapacitor/services/alertmanager"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -280,6 +281,7 @@ func New(c *Config, buildInfo BuildInfo, diagService *diagnostic.Service, disabl
 	if err := s.appendDiscordService(); err != nil {
 		return nil, errors.Wrap(err, "discord service")
 	}
+	s.appendAlertManagerService()
 	s.appendHipChatService()
 	s.appendKafkaService()
 	if err := s.appendMQTTService(); err != nil {
@@ -876,6 +878,17 @@ func (s *Server) appendDiscordService() error {
 	s.SetDynamicService("discord", srv)
 	s.AppendService("discord", srv)
 	return nil
+}
+func (s *Server) appendAlertManagerService() {
+	c := s.config.AlertManager
+	d := s.DiagService.NewAlertManagerHandler()
+	srv :=  alertmanager.NewService(c, d)
+
+	s.TaskMaster.AlertManagerService = srv
+	s.AlertService.AlertManagerService = srv
+
+	s.SetDynamicService("alertmanager", srv)
+	s.AppendService("alertmanager", srv)
 }
 
 func (s *Server) appendTalkService() {

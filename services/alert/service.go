@@ -4,6 +4,7 @@ import (
 	"encoding"
 	"encoding/json"
 	"fmt"
+	"github.com/influxdata/kapacitor/services/alertmanager"
 	"path"
 	"reflect"
 	"regexp"
@@ -92,6 +93,12 @@ type Service struct {
 	BigPandaService interface {
 		Handler(bigpanda.HandlerConfig, ...keyvalue.T) (alert.Handler, error)
 	}
+
+	AlertManagerService interface {
+		DefaultHandlerConfig() alertmanager.HandlerConfig
+		Handler(alertmanager.HandlerConfig, ...keyvalue.T) (alert.Handler, error)
+	}
+
 	HipChatService interface {
 		Handler(hipchat.HandlerConfig, ...keyvalue.T) alert.Handler
 	}
@@ -824,6 +831,13 @@ func (s *Service) createHandlerFromSpec(spec HandlerSpec) (handler, error) {
 			return handler{}, err
 		}
 		h, err = s.DiscordService.Handler(c, ctx...)
+		if err != nil {
+			return handler{}, err
+		}
+		h = newExternalHandler(h)
+	case "alertmanager":
+		c := s.AlertManagerService.DefaultHandlerConfig()
+		h, err  := s.AlertManagerService.Handler(c, ctx...)
 		if err != nil {
 			return handler{}, err
 		}

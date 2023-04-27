@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+
 	"log"
 	"runtime"
 	"strconv"
@@ -19,6 +20,7 @@ import (
 	"github.com/influxdata/kapacitor/services/alerta"
 	"github.com/influxdata/kapacitor/services/bigpanda"
 	"github.com/influxdata/kapacitor/services/discord"
+	"github.com/influxdata/kapacitor/services/alertmanager"
 	"github.com/influxdata/kapacitor/services/ec2"
 	"github.com/influxdata/kapacitor/services/hipchat"
 	"github.com/influxdata/kapacitor/services/httppost"
@@ -395,6 +397,28 @@ func (h *AlertaHandler) TemplateError(err error, kv keyvalue.T) {
 }
 
 func (h *AlertaHandler) Error(msg string, err error) {
+	h.l.Error(msg, Error(err))
+}
+
+// Alertmanager handler
+
+type AlertManagerHandler struct {
+	l Logger
+}
+
+func (h *AlertManagerHandler) TemplateError(err error, kv keyvalue.T) {
+	h.l.Error("failed to evaluate Alerta template", Error(err), String(kv.Key, kv.Value))
+}
+
+func (h *AlertManagerHandler) WithContext(ctx ...keyvalue.T) alertmanager.Diagnostic {
+	fields := logFieldsFromContext(ctx)
+
+	return &AlertManagerHandler{
+		l: h.l.With(fields...),
+	}
+}
+
+func (h *AlertManagerHandler) Error(msg string, err error) {
 	h.l.Error(msg, Error(err))
 }
 

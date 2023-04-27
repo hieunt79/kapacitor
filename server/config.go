@@ -18,6 +18,7 @@ import (
 	"github.com/influxdata/kapacitor/services/alert"
 	"github.com/influxdata/kapacitor/services/alerta"
 	"github.com/influxdata/kapacitor/services/auth"
+	"github.com/influxdata/kapacitor/services/alertmanager"
 	"github.com/influxdata/kapacitor/services/azure"
 	"github.com/influxdata/kapacitor/services/bigpanda"
 	"github.com/influxdata/kapacitor/services/config"
@@ -94,6 +95,7 @@ type Config struct {
 
 	// Alert handlers
 	Alerta     alerta.Config     `toml:"alerta" override:"alerta"`
+	AlertManager alertmanager.Config `toml:"alertmanager" override:"alertmanager"`
 	BigPanda   bigpanda.Config   `toml:"bigpanda" override:"bigpanda"`
 	Discord    discord.Configs   `toml:"discord" override:"discord,element-key=workspace"`
 	HipChat    hipchat.Config    `toml:"hipchat" override:"hipchat"`
@@ -172,6 +174,7 @@ func NewConfig() *Config {
 	c.Alerta = alerta.NewConfig()
 	c.BigPanda = bigpanda.NewConfig()
 	c.Discord = discord.Configs{discord.NewDefaultConfig()}
+	c.AlertManager = alertmanager.NewConfig()
 	c.HipChat = hipchat.NewConfig()
 	c.Kafka = kafka.Configs{kafka.NewConfig()}
 	c.MQTT = mqtt.Configs{mqtt.NewConfig()}
@@ -303,6 +306,9 @@ func (c *Config) Validate() error {
 	}
 	if err := c.Discord.Validate(); err != nil {
 		return err
+	}
+	if err := c.AlertManager.Validate(); err != nil {
+		return errors.Wrap(err, "alertmanager")
 	}
 	if err := c.HipChat.Validate(); err != nil {
 		return errors.Wrap(err, "hipchat")

@@ -698,6 +698,30 @@ func TestAlertAlerta(t *testing.T) {
 	PipelineTickTestHelper(t, pipe, want)
 }
 
+func TestAlertAlertManager(t *testing.T) {
+	pipe, _, from := StreamFrom()
+	handler := from.Alert().AlertManager()
+	handler.AlertManagerTagNames("foo1","foo2")
+	handler.AlertManagerTagValues("far1","far2")
+	handler.AlertManagerAnnotationNames("boo1","boo2")
+	handler.AlertManagerAnnotationValues("bar1","bar2")
+	want := `stream
+    |from()
+    |alert()
+        .id('{{ .Name }}:{{ .Group }}')
+        .message('{{ .ID }} is {{ .Level }}')
+        .details('{{ json . }}')
+        .history(21)
+        .alertManager()
+        .alertManagerTagNames('foo1', 'foo2')
+        .alertManagerTagValues('far1', 'far2')
+        .alertManagerAnnotationNames('boo1', 'boo2')
+        .alertManagerAnnotationValues('bar1', 'bar2')
+`
+	PipelineTickTestHelper(t, pipe, want)
+}
+
+
 func TestAlertOpsGenie(t *testing.T) {
 	pipe, _, from := StreamFrom()
 	handler := from.Alert().OpsGenie()

@@ -45,6 +45,7 @@ type AlertNode struct{ *AlertNodeData }
 //    * exec -- Execute a command passing alert data over STDIN.
 //    * HipChat -- Post alert message to HipChat room.
 //    * Alerta -- Post alert message to Alerta.
+//    * AlertManager -- Post alert message to AlertManager.
 //    * Sensu -- Post alert message to Sensu client.
 //    * Slack -- Post alert message to Slack channel.
 //    * SNMPTraps -- Trigger SNMP traps.
@@ -372,6 +373,10 @@ type AlertNodeData struct {
 	// Send alert to Alerta.
 	// tick:ignore
 	AlertaHandlers []*AlertaHandler `tick:"Alerta" json:"alerta"`
+
+	// Send alert to AlertManager.
+	// tick:ignore
+	AlertManagerHandlers []*AlertManagerHandler `tick:"AlertManager" json:"alertManager"`
 
 	// Send alert to OpsGenie
 	// tick:ignore
@@ -1321,6 +1326,41 @@ func (a *AlertaHandler) Attribute(k string, v interface{}) *AlertaHandler {
 	}
 	a.Attributes[k] = v
 	return a
+}
+// Send alert to an AlertManager
+// tick:property
+func (n *AlertNodeData) AlertManager() *AlertManagerHandler {
+	alertmanager := &AlertManagerHandler{
+		AlertNodeData: n,
+	}
+	alertmanager.AlertManagerHandlers = append(n.AlertManagerHandlers, alertmanager)
+	return alertmanager
+}
+
+func (a *AlertManagerHandler) AlertManagerTagNames(alertManagerTagName ...string) *AlertManagerHandler {
+	a.AlertManagerTagName = alertManagerTagName
+	return a
+}
+func (a *AlertManagerHandler) AlertManagerTagValues(alertManagerTagValue ...string) *AlertManagerHandler {
+	a.AlertManagerTagValue = alertManagerTagValue
+	return a
+}
+func (a *AlertManagerHandler) AlertManagerAnnotationNames(alertManagerAnnotationName ...string) *AlertManagerHandler {
+	a.AlertManagerAnnotationName = alertManagerAnnotationName
+	return a
+}
+func (a *AlertManagerHandler) AlertManagerAnnotationValues(alertManagerAnnotationValue ...string) *AlertManagerHandler {
+	a.AlertManagerAnnotationValue = alertManagerAnnotationValue
+	return a
+}
+
+// tick:embedded:AlertNode.AlertManager
+type AlertManagerHandler struct {
+	*AlertNodeData `json:"-"`
+	AlertManagerTagName []string `tick:"AlertManagerTagNames" json:"alertManagerTagName"`
+	AlertManagerTagValue []string `tick:"AlertManagerTagValues" json:"alertManagerTagValue"`
+	AlertManagerAnnotationName []string `tick:"AlertManagerAnnotationNames" json:"alertManagerAnnotationName"`
+	AlertManagerAnnotationValue []string `tick:"AlertManagerAnnotationValues" json:"alertManagerAnnotationValue"`
 }
 
 // Send alert to an MQTT broker

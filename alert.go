@@ -374,6 +374,28 @@ func newAlertNode(et *ExecutingTask, n *pipeline.AlertNode, d NodeDiagnostic) (a
 		an.handlers = append(an.handlers, h)
 	}
 
+	for _, am := range n.AlertManagerHandlers {
+		c := et.tm.AlertManagerService.DefaultHandlerConfig()
+		if len(am.AlertManagerTagName) != 0{
+			c.AlertManagerTagName = am.AlertManagerTagName
+		}
+		if len(am.AlertManagerTagValue) != 0{
+			c.AlertManagerTagValue = am.AlertManagerTagValue
+		}
+		if len(am.AlertManagerAnnotationName) != 0{
+			c.AlertManagerAnnotationName = am.AlertManagerAnnotationName
+		}
+		if len(am.AlertManagerAnnotationValue) != 0{
+			c.AlertManagerAnnotationValue = am.AlertManagerAnnotationValue
+		}
+		
+		h, err := et.tm.AlertManagerService.Handler(c,ctx...)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to create alertmanager handler")
+		}
+		an.handlers = append(an.handlers, h)
+	}
+
 	for _, a := range n.AlertaHandlers {
 		c := et.tm.AlertaService.DefaultHandlerConfig()
 		if a.Token != "" {
